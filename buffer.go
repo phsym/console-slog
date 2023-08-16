@@ -25,6 +25,10 @@ func (b *buffer) Len() int {
 	return len(*b)
 }
 
+func (b *buffer) Cap() int {
+	return cap(*b)
+}
+
 func (b *buffer) WriteTo(dst io.Writer) (int64, error) {
 	l := len(*b)
 	if l == 0 {
