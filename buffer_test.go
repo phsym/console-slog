@@ -3,22 +3,35 @@ package console
 import (
 	"bytes"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
+
+func AssertZero[E comparable](t *testing.T, v E) {
+	t.Helper()
+	var zero E
+	if v != zero {
+		t.Errorf("expected zero value, got %v", v)
+	}
+}
+
+func AssertEqual[E comparable](t *testing.T, expected, value E) {
+	t.Helper()
+	if expected != value {
+		t.Errorf("expected %v, got %v", expected, value)
+	}
+}
 
 func TestBuffer(t *testing.T) {
 	b := new(buffer)
-	assert.Zero(t, b.Len())
+	AssertZero(t, b.Len())
 	b.AppendString("foobar")
-	assert.Equal(t, 6, b.Len())
+	AssertEqual(t, 6, b.Len())
 	b.AppendString("baz")
-	assert.Equal(t, 9, b.Len())
-	assert.Equal(t, "foobarbaz", b.String())
+	AssertEqual(t, 9, b.Len())
+	AssertEqual(t, "foobarbaz", b.String())
 
 	b.AppendByte('.')
-	assert.Equal(t, 10, b.Len())
-	assert.Equal(t, "foobarbaz.", b.String())
+	AssertEqual(t, 10, b.Len())
+	AssertEqual(t, "foobarbaz.", b.String())
 }
 
 func BenchmarkBuffer(b *testing.B) {

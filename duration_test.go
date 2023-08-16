@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestDuration(t *testing.T) {
@@ -25,11 +23,11 @@ func TestDuration(t *testing.T) {
 	b := [4096]byte{}
 	for _, tm := range times {
 		bd := appendDuration(b[:0], tm)
-		assert.Equal(t, tm.String(), string(bd))
+		AssertEqual(t, tm.String(), string(bd))
 	}
 
 	bd := appendDuration(b[:0], 49*time.Hour+1*time.Second)
-	assert.Equal(t, "2d1h0m1s", string(bd))
+	AssertEqual(t, "2d1h0m1s", string(bd))
 }
 
 func BenchmarkDuration(b *testing.B) {
