@@ -27,9 +27,8 @@ var handlers = []struct {
 }
 
 var attrs = []slog.Attr{
-	slog.String("titi", "toto"),
-	slog.String("tata", "tutu"),
-	slog.Int("foo", 12),
+	slog.String("foo", "bar"),
+	slog.Int("int", 12),
 	slog.Duration("dur", 3*time.Second),
 	slog.Bool("bool", true),
 	slog.Float64("float", 23.7),
@@ -39,27 +38,20 @@ var attrs = []slog.Attr{
 	slog.Group("group", slog.String("bar", "baz")),
 }
 
-var attrsAny = []any{
-	slog.String("titi", "toto"),
-	slog.String("tata", "tutu"),
-	slog.Int("foo", 12),
-	slog.Duration("dur", 3*time.Second),
-	slog.Bool("bool", true),
-	slog.Float64("float", 23.7),
-	slog.Time("thetime", time.Now()),
-	slog.Any("err", errors.New("yo")),
-	slog.Group("empty"),
-	slog.Group("group", slog.String("bar", "baz")),
-}
+var attrsAny = func() (a []any) {
+	for _, attr := range attrs {
+		a = append(a, attr)
+	}
+	return
+}()
 
 func BenchmarkHandlers(b *testing.B) {
 	ctx := context.Background()
-	rec := slog.NewRecord(time.Now(), slog.LevelInfo, "yo", 0)
+	rec := slog.NewRecord(time.Now(), slog.LevelInfo, "hello", 0)
 	rec.AddAttrs(attrs...)
 
 	for _, tc := range handlers {
 		b.Run(tc.name, func(b *testing.B) {
-			// l := tc.hdl.WithAttrs([]slog.Attr{slog.String("toto", "tutu")}) //.WithGroup("test")
 			l := tc.hdl.WithAttrs(attrs).WithGroup("test").WithAttrs(attrs)
 			// Warm-up
 			l.Handle(ctx, rec)
@@ -77,10 +69,10 @@ func BenchmarkLoggers(b *testing.B) {
 		b.Run(tc.name, func(b *testing.B) {
 			l := slog.New(tc.hdl).With(attrsAny...).WithGroup("test").With(attrsAny...)
 			// Warm-up
-			l.LogAttrs(ctx, slog.LevelInfo, "yo", attrs...)
+			l.LogAttrs(ctx, slog.LevelInfo, "hello", attrs...)
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				l.LogAttrs(ctx, slog.LevelInfo, "yo", attrs...)
+				l.LogAttrs(ctx, slog.LevelInfo, "hello", attrs...)
 			}
 		})
 	}
