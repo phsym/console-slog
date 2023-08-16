@@ -27,6 +27,9 @@ type HandlerOptions struct {
 	// The handler calls Level.Level for each record processed;
 	// to adjust the minimum level dynamically, use a LevelVar.
 	Level slog.Leveler
+
+	// Disable colorized output
+	NoColor bool
 }
 
 type ConsoleHandler struct {
@@ -34,6 +37,7 @@ type ConsoleHandler struct {
 	out     io.Writer
 	group   string
 	context buffer
+	enc     *encoder
 }
 
 var _ slog.Handler = (*ConsoleHandler)(nil)
@@ -45,11 +49,13 @@ func NewHandler(out io.Writer, opts *HandlerOptions) *ConsoleHandler {
 	if opts.Level == nil {
 		opts.Level = slog.LevelInfo
 	}
+	opt := *opts // Copy struct
 	return &ConsoleHandler{
-		opts:    opts,
+		opts:    &opt,
 		out:     out,
 		group:   "",
 		context: nil,
+		enc:     &encoder{nocolor: opt.NoColor},
 	}
 }
 
@@ -62,18 +68,18 @@ func (h *ConsoleHandler) Enabled(_ context.Context, l slog.Level) bool {
 func (h *ConsoleHandler) Handle(_ context.Context, rec slog.Record) error {
 	buf := bufferPool.Get().(*buffer)
 
-	buf.writeTimestamp(rec.Time)
-	buf.writeLevel(rec.Level)
+	h.enc.writeTimestamp(buf, rec.Time)
+	h.enc.writeLevel(buf, rec.Level)
 	if h.opts.AddSource && rec.PC > 0 {
-		buf.writeSource(rec.PC, cwd)
+		h.enc.writeSource(buf, rec.PC, cwd)
 	}
-	buf.writeMessage(rec.Message)
+	h.enc.writeMessage(buf, rec.Message)
 	buf.copy(&h.context)
 	rec.Attrs(func(a slog.Attr) bool {
-		buf.writeAttr(a, h.group)
+		h.enc.writeAttr(buf, a, h.group)
 		return true
 	})
-	buf.NewLine()
+	h.enc.NewLine(buf)
 	if _, err := buf.WriteTo(h.out); err != nil {
 		buf.Reset()
 		bufferPool.Put(buf)
@@ -87,7 +93,7 @@ func (h *ConsoleHandler) Handle(_ context.Context, rec slog.Record) error {
 func (h *ConsoleHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	newCtx := h.context
 	for _, a := range attrs {
-		newCtx.writeAttr(a, h.group)
+		h.enc.writeAttr(&newCtx, a, h.group)
 	}
 	newCtx.Clip()
 	return &ConsoleHandler{
@@ -95,6 +101,7 @@ func (h *ConsoleHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 		out:     h.out,
 		group:   h.group,
 		context: newCtx,
+		enc:     h.enc,
 	}
 }
 
@@ -108,5 +115,6 @@ func (h *ConsoleHandler) WithGroup(name string) slog.Handler {
 		out:     h.out,
 		group:   name,
 		context: h.context,
+		enc:     h.enc,
 	}
 }
