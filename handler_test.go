@@ -5,6 +5,9 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -97,4 +100,51 @@ func TestHandler_WithGroup(t *testing.T) {
 	buf.Reset()
 	AssertNoError(t, h.Handle(context.Background(), rec))
 	AssertEqual(t, fmt.Sprintf("%s INF foobar int=12\r\n", now.Format(time.DateTime)), buf.String())
+}
+
+func TestHandler_Levels(t *testing.T) {
+	levels := map[slog.Level]string{
+		slog.LevelDebug - 1: "???",
+		slog.LevelDebug:     "DBG",
+		slog.LevelDebug + 1: "DBG",
+		slog.LevelInfo:      "INF",
+		slog.LevelInfo + 1:  "INF",
+		slog.LevelWarn:      "WRN",
+		slog.LevelWarn + 1:  "WRN",
+		slog.LevelError:     "ERR",
+		slog.LevelError + 1: "ERR",
+	}
+
+	for l := range levels {
+		t.Run(l.String(), func(t *testing.T) {
+			buf := bytes.Buffer{}
+			h := NewHandler(&buf, &HandlerOptions{Level: l, NoColor: true})
+			for ll, s := range levels {
+				AssertEqual(t, ll >= l, h.Enabled(context.Background(), ll))
+				now := time.Now()
+				rec := slog.NewRecord(now, ll, "foobar", 0)
+				if ll >= l {
+					AssertNoError(t, h.Handle(context.Background(), rec))
+					AssertEqual(t, fmt.Sprintf("%s %s foobar\r\n", now.Format(time.DateTime), s), buf.String())
+					buf.Reset()
+				}
+			}
+		})
+	}
+}
+
+func TestHandler_Source(t *testing.T) {
+	buf := bytes.Buffer{}
+	h := NewHandler(&buf, &HandlerOptions{NoColor: true, AddSource: true})
+	h2 := NewHandler(&buf, &HandlerOptions{NoColor: true, AddSource: false})
+	pc, file, line, _ := runtime.Caller(0)
+	now := time.Now()
+	rec := slog.NewRecord(now, slog.LevelInfo, "foobar", pc)
+	AssertNoError(t, h.Handle(context.Background(), rec))
+	cwd, _ := os.Getwd()
+	file, _ = filepath.Rel(cwd, file)
+	AssertEqual(t, fmt.Sprintf("%s INF %s:%d > foobar\r\n", now.Format(time.DateTime), file, line), buf.String())
+	buf.Reset()
+	AssertNoError(t, h2.Handle(context.Background(), rec))
+	AssertEqual(t, fmt.Sprintf("%s INF foobar\r\n", now.Format(time.DateTime)), buf.String())
 }
