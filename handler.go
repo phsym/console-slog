@@ -9,7 +9,7 @@ import (
 )
 
 var bufferPool = &sync.Pool{
-	New: func() any { return buffer{} },
+	New: func() any { return new(buffer) },
 }
 
 var cwd, _ = os.Getwd()
@@ -60,7 +60,7 @@ func (h *ConsoleHandler) Enabled(_ context.Context, l slog.Level) bool {
 
 // Handle implements slog.Handler.
 func (h *ConsoleHandler) Handle(_ context.Context, rec slog.Record) error {
-	buf := bufferPool.Get().(buffer)
+	buf := bufferPool.Get().(*buffer)
 
 	buf.writeTimestamp(rec.Time)
 	buf.writeLevel(rec.Level)

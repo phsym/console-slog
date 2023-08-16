@@ -1,8 +1,8 @@
 # console-slog
 
-[![godoc](http://img.shields.io/badge/godoc-reference-blue.svg?style=flat)](https://godoc.org/github.com/phsym/console-slog) [![license](http://img.shields.io/badge/license-MIT-red.svg?style=flat)](https://raw.githubusercontent.com/phsym/console-slog/master/LICENSE) [![Build](https://github.com/phsym/console-slog/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/phsym/zeroslog/actions/workflows/go.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/phsym/console-slog.svg)](https://pkg.go.dev/github.com/phsym/console-slog) [![license](http://img.shields.io/badge/license-MIT-red.svg?style=flat)](https://raw.githubusercontent.com/phsym/console-slog/master/LICENSE) [![Build](https://github.com/phsym/console-slog/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/phsym/zeroslog/actions/workflows/go.yml)
 
-A handler for slog that prints colorized logs, similar to zerolog's console writer output
+A handler for slog that prints colorized logs, similar to zerolog's console writer output, but without sacrificing performances.
 
 ## Example
 ```go
@@ -41,3 +41,30 @@ When setting `console.HandlerOptions.AddSource` to `true`:
 console.NewHandler(os.Stderr, &console.HandlerOptions{Level: slog.LevelDebug, AddSource: true})
 ```
 ![output-with-source](./doc/img/output-with-source.png)
+
+## Performances
+See [benchmark file](./bench_test.go) for details.
+
+The handler itself performs quite well compared to std-lib's handlers. It does no allocation:
+```
+goos: linux
+goarch: amd64
+pkg: github.com/phsym/console-slog
+cpu: Intel(R) Core(TM) i5-6300U CPU @ 2.40GHz
+BenchmarkHandlers/dummy-4               128931026            8.732 ns/op               0 B/op          0 allocs/op
+BenchmarkHandlers/console-4               849837              1294 ns/op               0 B/op          0 allocs/op
+BenchmarkHandlers/std-text-4              542583              2097 ns/op               4 B/op          2 allocs/op
+BenchmarkHandlers/std-json-4              583784              1911 ns/op             120 B/op          3 allocs/op
+```
+
+However, the go 1.21.0 `slog.Logger` adds some overhead:
+```
+goos: linux
+goarch: amd64
+pkg: github.com/phsym/console-slog
+cpu: Intel(R) Core(TM) i5-6300U CPU @ 2.40GHz
+BenchmarkLoggers/dummy-4                 1239873             893.2 ns/op             128 B/op          1 allocs/op
+BenchmarkLoggers/console-4                483354              2338 ns/op             128 B/op          1 allocs/op
+BenchmarkLoggers/std-text-4               368828              3141 ns/op             132 B/op          3 allocs/op
+BenchmarkLoggers/std-json-4               393322              2909 ns/op             248 B/op          4 allocs/op
+```
