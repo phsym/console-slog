@@ -2,53 +2,11 @@ package console
 
 import (
 	"bytes"
-	"cmp"
+	"errors"
+	"io"
 	"testing"
 	"time"
 )
-
-func AssertZero[E comparable](t *testing.T, v E) {
-	t.Helper()
-	var zero E
-	if v != zero {
-		t.Errorf("expected zero value, got %v", v)
-	}
-}
-
-func AssertEqual[E comparable](t *testing.T, expected, value E) {
-	t.Helper()
-	if expected != value {
-		t.Errorf("expected %v, got %v", expected, value)
-	}
-}
-
-func AssertNotEqual[E comparable](t *testing.T, expected, value E) {
-	t.Helper()
-	if expected == value {
-		t.Errorf("expected to be different, got %v", value)
-	}
-}
-
-func AssertGreaterOrEqual[E cmp.Ordered](t *testing.T, expected, value E) {
-	t.Helper()
-	if expected > value {
-		t.Errorf("expected to be %v to be greater than %v", value, expected)
-	}
-}
-
-func AssertNoError(t *testing.T, err error) {
-	t.Helper()
-	if err != nil {
-		t.Errorf("expected no error, got %q", err.Error())
-	}
-}
-
-// func AssertNil(t *testing.T, value any) {
-// 	t.Helper()
-// 	if value != nil {
-// 		t.Errorf("expected nil, got %v", value)
-// 	}
-// }
 
 func TestBuffer_Append(t *testing.T) {
 	b := new(buffer)
@@ -137,6 +95,21 @@ func TestBuffer_Clip(t *testing.T) {
 	b.Clip()
 	AssertEqual(t, "foobar", b.String())
 	AssertEqual(t, len("foobar"), b.Cap())
+}
+
+func TestBuffer_WriteTo_Err(t *testing.T) {
+	w := writerFunc(func(b []byte) (int, error) { return 0, errors.New("nope") })
+	b := new(buffer)
+	b.AppendString("foobar")
+	_, err := b.WriteTo(w)
+	AssertError(t, err)
+
+	w = writerFunc(func(b []byte) (int, error) { return 0, nil })
+	_, err = b.WriteTo(w)
+	AssertError(t, err)
+	if !errors.Is(err, io.ErrShortWrite) {
+		t.Fatalf("Expected io.ErrShortWrite, go %T", err)
+	}
 }
 
 func BenchmarkBuffer(b *testing.B) {

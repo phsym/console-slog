@@ -3,6 +3,7 @@ package console
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -34,6 +35,14 @@ func TestHandler_NoColor(t *testing.T) {
 	AssertEqual(t, expected, buf.String())
 }
 
+type theStringer struct{}
+
+func (t theStringer) String() string { return "stringer" }
+
+type noStringer struct {
+	Foo string
+}
+
 func TestHandler_Attr(t *testing.T) {
 	buf := bytes.Buffer{}
 	h := NewHandler(&buf, &HandlerOptions{NoColor: true})
@@ -48,10 +57,13 @@ func TestHandler_Attr(t *testing.T) {
 		slog.Time("time", now),
 		slog.Duration("dur", time.Second),
 		slog.Group("group", slog.String("foo", "bar"), slog.Group("subgroup", slog.String("foo", "bar"))),
+		slog.Any("err", errors.New("the error")),
+		slog.Any("stringer", theStringer{}),
+		slog.Any("nostringer", noStringer{Foo: "bar"}),
 	)
 	AssertNoError(t, h.Handle(context.Background(), rec))
 
-	expected := fmt.Sprintf("%s INF foobar bool=true int=-12 uint=12 float=3.14 foo=bar time=%s dur=1s group.foo=bar group.subgroup.foo=bar\r\n", now.Format(time.DateTime), now.Format(time.RFC3339))
+	expected := fmt.Sprintf("%s INF foobar bool=true int=-12 uint=12 float=3.14 foo=bar time=%s dur=1s group.foo=bar group.subgroup.foo=bar err=the error stringer=stringer nostringer={bar}\r\n", now.Format(time.DateTime), now.Format(time.RFC3339))
 	AssertEqual(t, expected, buf.String())
 }
 
@@ -147,4 +159,11 @@ func TestHandler_Source(t *testing.T) {
 	buf.Reset()
 	AssertNoError(t, h2.Handle(context.Background(), rec))
 	AssertEqual(t, fmt.Sprintf("%s INF foobar\r\n", now.Format(time.DateTime)), buf.String())
+}
+
+func TestHandler_Err(t *testing.T) {
+	w := writerFunc(func(b []byte) (int, error) { return 0, errors.New("nope") })
+	h := NewHandler(w, &HandlerOptions{NoColor: true})
+	rec := slog.NewRecord(time.Now(), slog.LevelInfo, "foobar", 0)
+	AssertError(t, h.Handle(context.Background(), rec))
 }
