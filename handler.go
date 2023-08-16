@@ -32,7 +32,7 @@ type HandlerOptions struct {
 	NoColor bool
 }
 
-type ConsoleHandler struct {
+type Handler struct {
 	opts    *HandlerOptions
 	out     io.Writer
 	group   string
@@ -40,9 +40,12 @@ type ConsoleHandler struct {
 	enc     *encoder
 }
 
-var _ slog.Handler = (*ConsoleHandler)(nil)
+var _ slog.Handler = (*Handler)(nil)
 
-func NewHandler(out io.Writer, opts *HandlerOptions) *ConsoleHandler {
+// NewHandler creates a Handler that writes to w,
+// using the given options.
+// If opts is nil, the default options are used.
+func NewHandler(out io.Writer, opts *HandlerOptions) *Handler {
 	if opts == nil {
 		opts = new(HandlerOptions)
 	}
@@ -50,7 +53,7 @@ func NewHandler(out io.Writer, opts *HandlerOptions) *ConsoleHandler {
 		opts.Level = slog.LevelInfo
 	}
 	opt := *opts // Copy struct
-	return &ConsoleHandler{
+	return &Handler{
 		opts:    &opt,
 		out:     out,
 		group:   "",
@@ -60,12 +63,12 @@ func NewHandler(out io.Writer, opts *HandlerOptions) *ConsoleHandler {
 }
 
 // Enabled implements slog.Handler.
-func (h *ConsoleHandler) Enabled(_ context.Context, l slog.Level) bool {
+func (h *Handler) Enabled(_ context.Context, l slog.Level) bool {
 	return l >= h.opts.Level.Level()
 }
 
 // Handle implements slog.Handler.
-func (h *ConsoleHandler) Handle(_ context.Context, rec slog.Record) error {
+func (h *Handler) Handle(_ context.Context, rec slog.Record) error {
 	buf := bufferPool.Get().(*buffer)
 
 	h.enc.writeTimestamp(buf, rec.Time)
@@ -90,13 +93,13 @@ func (h *ConsoleHandler) Handle(_ context.Context, rec slog.Record) error {
 }
 
 // WithAttrs implements slog.Handler.
-func (h *ConsoleHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+func (h *Handler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	newCtx := h.context
 	for _, a := range attrs {
 		h.enc.writeAttr(&newCtx, a, h.group)
 	}
 	newCtx.Clip()
-	return &ConsoleHandler{
+	return &Handler{
 		opts:    h.opts,
 		out:     h.out,
 		group:   h.group,
@@ -106,11 +109,11 @@ func (h *ConsoleHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 }
 
 // WithGroup implements slog.Handler.
-func (h *ConsoleHandler) WithGroup(name string) slog.Handler {
+func (h *Handler) WithGroup(name string) slog.Handler {
 	if h.group != "" {
 		name = h.group + "." + name
 	}
-	return &ConsoleHandler{
+	return &Handler{
 		opts:    h.opts,
 		out:     h.out,
 		group:   name,
