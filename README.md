@@ -1,6 +1,6 @@
 # console-slog
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/phsym/console-slog.svg)](https://pkg.go.dev/github.com/phsym/console-slog) [![license](http://img.shields.io/badge/license-MIT-red.svg?style=flat)](https://raw.githubusercontent.com/phsym/console-slog/master/LICENSE) [![Build](https://github.com/phsym/console-slog/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/phsym/zeroslog/actions/workflows/go.yml) [![codecov](https://codecov.io/gh/phsym/console-slog/graph/badge.svg?token=ZIJT9L79QP)](https://codecov.io/gh/phsym/console-slog)
+[![Go Reference](https://pkg.go.dev/badge/github.com/phsym/console-slog.svg)](https://pkg.go.dev/github.com/phsym/console-slog) [![license](http://img.shields.io/badge/license-MIT-red.svg?style=flat)](https://raw.githubusercontent.com/phsym/console-slog/master/LICENSE) [![Build](https://github.com/phsym/console-slog/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/phsym/zeroslog/actions/workflows/go.yml) [![codecov](https://codecov.io/gh/phsym/console-slog/graph/badge.svg?token=ZIJT9L79QP)](https://codecov.io/gh/phsym/console-slog) [![Go Report Card](https://goreportcard.com/badge/github.com/phsym/console-slog)](https://goreportcard.com/report/github.com/phsym/console-slog)
 
 A handler for slog that prints colorized logs, similar to zerolog's console writer output without sacrificing performances.
 
