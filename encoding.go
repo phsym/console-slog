@@ -114,7 +114,6 @@ func (e *encoder) writeAttr(buf *buffer, a slog.Attr, group string) {
 		buf.AppendByte('=')
 	})
 	e.writeValue(buf, value)
-	return
 }
 
 func (e *encoder) writeValue(buf *buffer, value slog.Value) {

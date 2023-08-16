@@ -54,10 +54,10 @@ func BenchmarkHandlers(b *testing.B) {
 		b.Run(tc.name, func(b *testing.B) {
 			l := tc.hdl.WithAttrs(attrs).WithGroup("test").WithAttrs(attrs)
 			// Warm-up
-			l.Handle(ctx, rec)
+			_ = l.Handle(ctx, rec)
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				l.Handle(ctx, rec)
+				_ = l.Handle(ctx, rec)
 			}
 		})
 	}

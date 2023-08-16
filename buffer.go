@@ -57,9 +57,9 @@ func (b *buffer) Clip() {
 	*b = slices.Clip(*b)
 }
 
-func (buf *buffer) copy(src *buffer) {
+func (b *buffer) copy(src *buffer) {
 	if src.Len() > 0 {
-		buf.Append(src.Bytes())
+		b.Append(src.Bytes())
 	}
 }
 
