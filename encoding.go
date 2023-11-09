@@ -9,7 +9,7 @@ import (
 )
 
 type encoder struct {
-	nocolor bool
+	noColor    bool
 }
 
 func (e *encoder) NewLine(buf *buffer) {
@@ -17,7 +17,7 @@ func (e *encoder) NewLine(buf *buffer) {
 }
 
 func (e *encoder) withColor(b *buffer, c color, f func()) {
-	if c == "" || e.nocolor {
+	if c == "" || e.noColor {
 		f()
 		return
 	}

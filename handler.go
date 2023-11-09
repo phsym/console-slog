@@ -59,7 +59,7 @@ func NewHandler(out io.Writer, opts *HandlerOptions) *Handler {
 		out:     out,
 		group:   "",
 		context: nil,
-		enc:     &encoder{nocolor: opt.NoColor},
+		enc:     &encoder{noColor: opt.NoColor},
 	}
 }
 
