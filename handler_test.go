@@ -13,17 +13,6 @@ import (
 	"time"
 )
 
-func TestHandler_colors(t *testing.T) {
-	buf := bytes.Buffer{}
-	h := NewHandler(&buf, nil)
-	now := time.Now()
-	rec := slog.NewRecord(now, slog.LevelInfo, "foobar", 0)
-	AssertNoError(t, h.Handle(context.Background(), rec))
-
-	expected := fmt.Sprintf("\x1b[90m%s\x1b[0m \x1b[92mINF\x1b[0m \x1b[97mfoobar\x1b[0m\n", now.Format(time.DateTime))
-	AssertEqual(t, expected, buf.String())
-}
-
 func TestHandler_TimeFormat(t *testing.T) {
 	buf := bytes.Buffer{}
 	h := NewHandler(&buf, &HandlerOptions{TimeFormat: time.RFC3339Nano, NoColor: true})
@@ -179,4 +168,161 @@ func TestHandler_Err(t *testing.T) {
 	h := NewHandler(w, &HandlerOptions{NoColor: true})
 	rec := slog.NewRecord(time.Now(), slog.LevelInfo, "foobar", 0)
 	AssertError(t, h.Handle(context.Background(), rec))
+}
+
+func TestThemes(t *testing.T) {
+	for _, theme := range []Theme{
+		NewDefaultTheme(),
+		NewBrightTheme(),
+	} {
+		t.Run(theme.Name(), func(t *testing.T) {
+			level := slog.LevelInfo
+			rec := slog.Record{}
+			buf := bytes.Buffer{}
+			bufBytes := buf.Bytes()
+			now := time.Now()
+			timeFormat := time.Kitchen
+			index := -1
+			toIndex := -1
+			h := NewHandler(&buf, &HandlerOptions{
+				AddSource:  true,
+				TimeFormat: timeFormat,
+				Theme:      theme,
+			}).WithAttrs([]slog.Attr{{Key: "pid", Value: slog.IntValue(37556)}})
+			var pcs [1]uintptr
+			runtime.Callers(1, pcs[:])
+
+			checkANSIMod := func(t *testing.T, name string, ansiMod ANSIMod) {
+				t.Run(name, func(t *testing.T) {
+					index = bytes.IndexByte(bufBytes, '\x1b')
+					AssertNotEqual(t, -1, index)
+					toIndex = index + len(ansiMod)
+					AssertEqual(t, ansiMod, ANSIMod(bufBytes[index:toIndex]))
+					bufBytes = bufBytes[toIndex:]
+					index = bytes.IndexByte(bufBytes, '\x1b')
+					AssertNotEqual(t, -1, index)
+					toIndex = index + len(ResetMod)
+					AssertEqual(t, ResetMod, ANSIMod(bufBytes[index:toIndex]))
+					bufBytes = bufBytes[toIndex:]
+				})
+			}
+
+			checkLog := func(level slog.Level, attrCount int) {
+				t.Run("CheckLog_"+level.String(), func(t *testing.T) {
+					println("log: ", string(buf.Bytes()))
+
+					// Timestamp
+					if theme.Timestamp() != "" {
+						checkANSIMod(t, "Timestamp", theme.Timestamp())
+					}
+
+					// Level
+					if theme.Level(level) != "" {
+						checkANSIMod(t, level.String(), theme.Level(level))
+					}
+
+					// Source
+					if theme.Source() != "" {
+						checkANSIMod(t, "Source", theme.Source())
+						checkANSIMod(t, "AttrKey", theme.AttrKey())
+					}
+
+					// Message
+					if level >= slog.LevelInfo {
+						if theme.Message() != "" {
+							checkANSIMod(t, "Message", theme.Message())
+						}
+					} else {
+						if theme.MessageDebug() != "" {
+							checkANSIMod(t, "MessageDebug", theme.MessageDebug())
+						}
+					}
+
+					for i := 0; i < attrCount; i++ {
+						// AttrKey
+						if theme.AttrKey() != "" {
+							checkANSIMod(t, "AttrKey", theme.AttrKey())
+						}
+
+						// AttrValue
+						if theme.AttrValue() != "" {
+							checkANSIMod(t, "AttrValue", theme.AttrValue())
+						}
+					}
+				})
+			}
+
+			buf.Reset()
+			level = slog.LevelDebug - 1
+			rec = slog.NewRecord(now, level, "Access", pcs[0])
+			rec.Add("database", "myapp", "host", "localhost:4962")
+			h.Handle(context.Background(), rec)
+			bufBytes = buf.Bytes()
+			checkLog(level, 3)
+
+			buf.Reset()
+			level = slog.LevelDebug
+			rec = slog.NewRecord(now, level, "Access", pcs[0])
+			rec.Add("database", "myapp", "host", "localhost:4962")
+			h.Handle(context.Background(), rec)
+			bufBytes = buf.Bytes()
+			checkLog(level, 3)
+
+			buf.Reset()
+			level = slog.LevelDebug + 1
+			rec = slog.NewRecord(now, level, "Access", pcs[0])
+			rec.Add("database", "myapp", "host", "localhost:4962")
+			h.Handle(context.Background(), rec)
+			bufBytes = buf.Bytes()
+			checkLog(level, 3)
+
+			buf.Reset()
+			level = slog.LevelInfo
+			rec = slog.NewRecord(now, level, "Starting listener", pcs[0])
+			rec.Add("listen", ":8080")
+			h.Handle(context.Background(), rec)
+			bufBytes = buf.Bytes()
+			checkLog(level, 2)
+
+			buf.Reset()
+			level = slog.LevelInfo + 1
+			rec = slog.NewRecord(now, level, "Access", pcs[0])
+			rec.Add("method", "GET", "path", "/users", "resp_time", time.Millisecond*10)
+			h.Handle(context.Background(), rec)
+			bufBytes = buf.Bytes()
+			checkLog(level, 4)
+
+			buf.Reset()
+			level = slog.LevelWarn
+			rec = slog.NewRecord(now, level, "Slow request", pcs[0])
+			rec.Add("method", "POST", "path", "/posts", "resp_time", time.Second*532)
+			h.Handle(context.Background(), rec)
+			bufBytes = buf.Bytes()
+			checkLog(level, 4)
+
+			buf.Reset()
+			level = slog.LevelWarn + 1
+			rec = slog.NewRecord(now, level, "Slow request", pcs[0])
+			rec.Add("method", "POST", "path", "/posts", "resp_time", time.Second*532)
+			h.Handle(context.Background(), rec)
+			bufBytes = buf.Bytes()
+			checkLog(level, 4)
+
+			buf.Reset()
+			level = slog.LevelError
+			rec = slog.NewRecord(now, level, "Database connection lost", pcs[0])
+			rec.Add("database", "myapp", "error", errors.New("connection reset by peer"))
+			h.Handle(context.Background(), rec)
+			bufBytes = buf.Bytes()
+			checkLog(level, 3)
+
+			buf.Reset()
+			level = slog.LevelError + 1
+			rec = slog.NewRecord(now, level, "Database connection lost", pcs[0])
+			rec.Add("database", "myapp", "error", errors.New("connection reset by peer"))
+			h.Handle(context.Background(), rec)
+			bufBytes = buf.Bytes()
+			checkLog(level, 3)
+		})
+	}
 }
