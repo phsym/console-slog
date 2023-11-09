@@ -14,7 +14,7 @@ type encoder struct {
 }
 
 func (e *encoder) NewLine(buf *buffer) {
-	buf.AppendString("\r\n")
+	buf.AppendByte('\n')
 }
 
 func (e *encoder) withColor(b *buffer, c color, f func()) {

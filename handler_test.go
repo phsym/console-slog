@@ -20,7 +20,7 @@ func TestHandler_colors(t *testing.T) {
 	rec := slog.NewRecord(now, slog.LevelInfo, "foobar", 0)
 	AssertNoError(t, h.Handle(context.Background(), rec))
 
-	expected := fmt.Sprintf("\x1b[90m%s\x1b[0m \x1b[92mINF\x1b[0m \x1b[97mfoobar\x1b[0m\r\n", now.Format(time.DateTime))
+	expected := fmt.Sprintf("\x1b[90m%s\x1b[0m \x1b[92mINF\x1b[0m \x1b[97mfoobar\x1b[0m\n", now.Format(time.DateTime))
 	AssertEqual(t, expected, buf.String())
 }
 
@@ -33,7 +33,7 @@ func TestHandler_TimeFormat(t *testing.T) {
 	rec.AddAttrs(slog.Time("endtime", endTime))
 	AssertNoError(t, h.Handle(context.Background(), rec))
 
-	expected := fmt.Sprintf("%s INF foobar endtime=%s\r\n", now.Format(time.RFC3339Nano), endTime.Format(time.RFC3339Nano))
+	expected := fmt.Sprintf("%s INF foobar endtime=%s\n", now.Format(time.RFC3339Nano), endTime.Format(time.RFC3339Nano))
 	AssertEqual(t, expected, buf.String())
 }
 
@@ -44,7 +44,7 @@ func TestHandler_NoColor(t *testing.T) {
 	rec := slog.NewRecord(now, slog.LevelInfo, "foobar", 0)
 	AssertNoError(t, h.Handle(context.Background(), rec))
 
-	expected := fmt.Sprintf("%s INF foobar\r\n", now.Format(time.DateTime))
+	expected := fmt.Sprintf("%s INF foobar\n", now.Format(time.DateTime))
 	AssertEqual(t, expected, buf.String())
 }
 
@@ -76,7 +76,7 @@ func TestHandler_Attr(t *testing.T) {
 	)
 	AssertNoError(t, h.Handle(context.Background(), rec))
 
-	expected := fmt.Sprintf("%s INF foobar bool=true int=-12 uint=12 float=3.14 foo=bar time=%s dur=1s group.foo=bar group.subgroup.foo=bar err=the error stringer=stringer nostringer={bar}\r\n", now.Format(time.DateTime), now.Format(time.DateTime))
+	expected := fmt.Sprintf("%s INF foobar bool=true int=-12 uint=12 float=3.14 foo=bar time=%s dur=1s group.foo=bar group.subgroup.foo=bar err=the error stringer=stringer nostringer={bar}\n", now.Format(time.DateTime), now.Format(time.DateTime))
 	AssertEqual(t, expected, buf.String())
 }
 
@@ -97,12 +97,12 @@ func TestHandler_WithAttr(t *testing.T) {
 	})
 	AssertNoError(t, h2.Handle(context.Background(), rec))
 
-	expected := fmt.Sprintf("%s INF foobar bool=true int=-12 uint=12 float=3.14 foo=bar time=%s dur=1s group.foo=bar group.subgroup.foo=bar\r\n", now.Format(time.DateTime), now.Format(time.DateTime))
+	expected := fmt.Sprintf("%s INF foobar bool=true int=-12 uint=12 float=3.14 foo=bar time=%s dur=1s group.foo=bar group.subgroup.foo=bar\n", now.Format(time.DateTime), now.Format(time.DateTime))
 	AssertEqual(t, expected, buf.String())
 
 	buf.Reset()
 	AssertNoError(t, h.Handle(context.Background(), rec))
-	AssertEqual(t, fmt.Sprintf("%s INF foobar\r\n", now.Format(time.DateTime)), buf.String())
+	AssertEqual(t, fmt.Sprintf("%s INF foobar\n", now.Format(time.DateTime)), buf.String())
 }
 
 func TestHandler_WithGroup(t *testing.T) {
@@ -113,18 +113,18 @@ func TestHandler_WithGroup(t *testing.T) {
 	rec.Add("int", 12)
 	h2 := h.WithGroup("group1").WithAttrs([]slog.Attr{slog.String("foo", "bar")})
 	AssertNoError(t, h2.Handle(context.Background(), rec))
-	expected := fmt.Sprintf("%s INF foobar group1.foo=bar group1.int=12\r\n", now.Format(time.DateTime))
+	expected := fmt.Sprintf("%s INF foobar group1.foo=bar group1.int=12\n", now.Format(time.DateTime))
 	AssertEqual(t, expected, buf.String())
 	buf.Reset()
 
 	h3 := h2.WithGroup("group2")
 	AssertNoError(t, h3.Handle(context.Background(), rec))
-	expected = fmt.Sprintf("%s INF foobar group1.foo=bar group1.group2.int=12\r\n", now.Format(time.DateTime))
+	expected = fmt.Sprintf("%s INF foobar group1.foo=bar group1.group2.int=12\n", now.Format(time.DateTime))
 	AssertEqual(t, expected, buf.String())
 
 	buf.Reset()
 	AssertNoError(t, h.Handle(context.Background(), rec))
-	AssertEqual(t, fmt.Sprintf("%s INF foobar int=12\r\n", now.Format(time.DateTime)), buf.String())
+	AssertEqual(t, fmt.Sprintf("%s INF foobar int=12\n", now.Format(time.DateTime)), buf.String())
 }
 
 func TestHandler_Levels(t *testing.T) {
@@ -150,7 +150,7 @@ func TestHandler_Levels(t *testing.T) {
 				rec := slog.NewRecord(now, ll, "foobar", 0)
 				if ll >= l {
 					AssertNoError(t, h.Handle(context.Background(), rec))
-					AssertEqual(t, fmt.Sprintf("%s %s foobar\r\n", now.Format(time.DateTime), s), buf.String())
+					AssertEqual(t, fmt.Sprintf("%s %s foobar\n", now.Format(time.DateTime), s), buf.String())
 					buf.Reset()
 				}
 			}
@@ -168,10 +168,10 @@ func TestHandler_Source(t *testing.T) {
 	AssertNoError(t, h.Handle(context.Background(), rec))
 	cwd, _ := os.Getwd()
 	file, _ = filepath.Rel(cwd, file)
-	AssertEqual(t, fmt.Sprintf("%s INF %s:%d > foobar\r\n", now.Format(time.DateTime), file, line), buf.String())
+	AssertEqual(t, fmt.Sprintf("%s INF %s:%d > foobar\n", now.Format(time.DateTime), file, line), buf.String())
 	buf.Reset()
 	AssertNoError(t, h2.Handle(context.Background(), rec))
-	AssertEqual(t, fmt.Sprintf("%s INF foobar\r\n", now.Format(time.DateTime)), buf.String())
+	AssertEqual(t, fmt.Sprintf("%s INF foobar\n", now.Format(time.DateTime)), buf.String())
 }
 
 func TestHandler_Err(t *testing.T) {
