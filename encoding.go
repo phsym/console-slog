@@ -150,22 +150,31 @@ func (e *encoder) writeValue(buf *buffer, value slog.Value) {
 func (e *encoder) writeLevel(buf *buffer, l slog.Level) {
 	var style color
 	var str string
+	var delta int
 	switch {
 	case l >= slog.LevelError:
 		style = colorLevelError
 		str = "ERR"
+		delta = int(l - slog.LevelError)
 	case l >= slog.LevelWarn:
 		style = colorLevelWarn
 		str = "WRN"
+		delta = int(l - slog.LevelWarn)
 	case l >= slog.LevelInfo:
 		style = colorLevelInfo
 		str = "INF"
+		delta = int(l - slog.LevelInfo)
 	case l >= slog.LevelDebug:
 		style = colorLevelDebug
 		str = "DBG"
+		delta = int(l - slog.LevelDebug)
 	default:
 		style = bold
-		str = "???"
+		str = "DBG"
+		delta = int(l - slog.LevelDebug)
+	}
+	if delta != 0 {
+		str = fmt.Sprintf("%s%+d", str, delta)
 	}
 	e.writeColoredString(buf, str, style)
 	buf.AppendByte(' ')

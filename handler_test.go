@@ -116,15 +116,15 @@ func TestHandler_WithGroup(t *testing.T) {
 
 func TestHandler_Levels(t *testing.T) {
 	levels := map[slog.Level]string{
-		slog.LevelDebug - 1: "???",
+		slog.LevelDebug - 1: "DBG-1",
 		slog.LevelDebug:     "DBG",
-		slog.LevelDebug + 1: "DBG",
+		slog.LevelDebug + 1: "DBG+1",
 		slog.LevelInfo:      "INF",
-		slog.LevelInfo + 1:  "INF",
+		slog.LevelInfo + 1:  "INF+1",
 		slog.LevelWarn:      "WRN",
-		slog.LevelWarn + 1:  "WRN",
+		slog.LevelWarn + 1:  "WRN+1",
 		slog.LevelError:     "ERR",
-		slog.LevelError + 1: "ERR",
+		slog.LevelError + 1: "ERR+1",
 	}
 
 	for l := range levels {
