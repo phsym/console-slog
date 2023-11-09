@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 )
 
 var bufferPool = &sync.Pool{
@@ -31,6 +32,9 @@ type HandlerOptions struct {
 
 	// Disable colorized output
 	NoColor bool
+
+	// TimeFormat is the format used for time.DateTime
+	TimeFormat string
 }
 
 type Handler struct {
@@ -53,13 +57,16 @@ func NewHandler(out io.Writer, opts *HandlerOptions) *Handler {
 	if opts.Level == nil {
 		opts.Level = slog.LevelInfo
 	}
+	if opts.TimeFormat == "" {
+		opts.TimeFormat = time.DateTime
+	}
 	opt := *opts // Copy struct
 	return &Handler{
 		opts:    &opt,
 		out:     out,
 		group:   "",
 		context: nil,
-		enc:     &encoder{noColor: opt.NoColor},
+		enc:     &encoder{noColor: opt.NoColor, timeFormat: opt.TimeFormat},
 	}
 }
 

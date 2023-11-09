@@ -24,6 +24,19 @@ func TestHandler_colors(t *testing.T) {
 	AssertEqual(t, expected, buf.String())
 }
 
+func TestHandler_TimeFormat(t *testing.T) {
+	buf := bytes.Buffer{}
+	h := NewHandler(&buf, &HandlerOptions{TimeFormat: time.RFC3339Nano, NoColor: true})
+	now := time.Now()
+	rec := slog.NewRecord(now, slog.LevelInfo, "foobar", 0)
+	endTime := now.Add(time.Second)
+	rec.AddAttrs(slog.Time("endtime", endTime))
+	AssertNoError(t, h.Handle(context.Background(), rec))
+
+	expected := fmt.Sprintf("%s INF foobar endtime=%s\r\n", now.Format(time.RFC3339Nano), endTime.Format(time.RFC3339Nano))
+	AssertEqual(t, expected, buf.String())
+}
+
 func TestHandler_NoColor(t *testing.T) {
 	buf := bytes.Buffer{}
 	h := NewHandler(&buf, &HandlerOptions{NoColor: true})
@@ -63,7 +76,7 @@ func TestHandler_Attr(t *testing.T) {
 	)
 	AssertNoError(t, h.Handle(context.Background(), rec))
 
-	expected := fmt.Sprintf("%s INF foobar bool=true int=-12 uint=12 float=3.14 foo=bar time=%s dur=1s group.foo=bar group.subgroup.foo=bar err=the error stringer=stringer nostringer={bar}\r\n", now.Format(time.DateTime), now.Format(time.RFC3339))
+	expected := fmt.Sprintf("%s INF foobar bool=true int=-12 uint=12 float=3.14 foo=bar time=%s dur=1s group.foo=bar group.subgroup.foo=bar err=the error stringer=stringer nostringer={bar}\r\n", now.Format(time.DateTime), now.Format(time.DateTime))
 	AssertEqual(t, expected, buf.String())
 }
 
@@ -84,7 +97,7 @@ func TestHandler_WithAttr(t *testing.T) {
 	})
 	AssertNoError(t, h2.Handle(context.Background(), rec))
 
-	expected := fmt.Sprintf("%s INF foobar bool=true int=-12 uint=12 float=3.14 foo=bar time=%s dur=1s group.foo=bar group.subgroup.foo=bar\r\n", now.Format(time.DateTime), now.Format(time.RFC3339))
+	expected := fmt.Sprintf("%s INF foobar bool=true int=-12 uint=12 float=3.14 foo=bar time=%s dur=1s group.foo=bar group.subgroup.foo=bar\r\n", now.Format(time.DateTime), now.Format(time.DateTime))
 	AssertEqual(t, expected, buf.String())
 
 	buf.Reset()

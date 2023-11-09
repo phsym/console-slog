@@ -10,6 +10,7 @@ import (
 
 type encoder struct {
 	noColor    bool
+	timeFormat string
 }
 
 func (e *encoder) NewLine(buf *buffer) {
@@ -69,7 +70,7 @@ func (e *encoder) writeColoredDuration(w *buffer, d time.Duration, seq color) {
 }
 
 func (e *encoder) writeTimestamp(buf *buffer, tt time.Time) {
-	e.writeColoredTime(buf, tt, time.DateTime, colorTimestamp)
+	e.writeColoredTime(buf, tt, e.timeFormat, colorTimestamp)
 	buf.AppendByte(' ')
 }
 
@@ -125,7 +126,7 @@ func (e *encoder) writeValue(buf *buffer, value slog.Value) {
 	case slog.KindFloat64:
 		e.writeColoredFloat(buf, value.Float64(), colorAttrValue)
 	case slog.KindTime:
-		e.writeColoredTime(buf, value.Time(), time.RFC3339, colorAttrValue)
+		e.writeColoredTime(buf, value.Time(), e.timeFormat, colorAttrValue)
 	case slog.KindUint64:
 		e.writeColoredUint(buf, value.Uint64(), colorAttrValue)
 	case slog.KindDuration:
