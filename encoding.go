@@ -9,15 +9,16 @@ import (
 )
 
 type encoder struct {
-	nocolor bool
+	noColor    bool
+	timeFormat string
 }
 
 func (e *encoder) NewLine(buf *buffer) {
-	buf.AppendString("\r\n")
+	buf.AppendByte('\n')
 }
 
 func (e *encoder) withColor(b *buffer, c color, f func()) {
-	if c == "" || e.nocolor {
+	if c == "" || e.noColor {
 		f()
 		return
 	}
@@ -69,7 +70,7 @@ func (e *encoder) writeColoredDuration(w *buffer, d time.Duration, seq color) {
 }
 
 func (e *encoder) writeTimestamp(buf *buffer, tt time.Time) {
-	e.writeColoredTime(buf, tt, time.DateTime, colorTimestamp)
+	e.writeColoredTime(buf, tt, e.timeFormat, colorTimestamp)
 	buf.AppendByte(' ')
 }
 
@@ -125,7 +126,7 @@ func (e *encoder) writeValue(buf *buffer, value slog.Value) {
 	case slog.KindFloat64:
 		e.writeColoredFloat(buf, value.Float64(), colorAttrValue)
 	case slog.KindTime:
-		e.writeColoredTime(buf, value.Time(), time.RFC3339, colorAttrValue)
+		e.writeColoredTime(buf, value.Time(), e.timeFormat, colorAttrValue)
 	case slog.KindUint64:
 		e.writeColoredUint(buf, value.Uint64(), colorAttrValue)
 	case slog.KindDuration:
@@ -150,22 +151,31 @@ func (e *encoder) writeValue(buf *buffer, value slog.Value) {
 func (e *encoder) writeLevel(buf *buffer, l slog.Level) {
 	var style color
 	var str string
+	var delta int
 	switch {
 	case l >= slog.LevelError:
 		style = colorLevelError
 		str = "ERR"
+		delta = int(l - slog.LevelError)
 	case l >= slog.LevelWarn:
 		style = colorLevelWarn
 		str = "WRN"
+		delta = int(l - slog.LevelWarn)
 	case l >= slog.LevelInfo:
 		style = colorLevelInfo
 		str = "INF"
+		delta = int(l - slog.LevelInfo)
 	case l >= slog.LevelDebug:
 		style = colorLevelDebug
 		str = "DBG"
+		delta = int(l - slog.LevelDebug)
 	default:
 		style = bold
-		str = "???"
+		str = "DBG"
+		delta = int(l - slog.LevelDebug)
+	}
+	if delta != 0 {
+		str = fmt.Sprintf("%s%+d", str, delta)
 	}
 	e.writeColoredString(buf, str, style)
 	buf.AppendByte(' ')
