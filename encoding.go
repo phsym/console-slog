@@ -97,6 +97,10 @@ func (e encoder) writeMessage(buf *buffer, level slog.Level, msg string) {
 }
 
 func (e encoder) writeAttr(buf *buffer, a slog.Attr, group string) {
+	// Elide empty Attrs.
+	if a.Equal(slog.Attr{}) {
+		return
+	}
 	value := a.Value.Resolve()
 	if value.Kind() == slog.KindGroup {
 		subgroup := a.Key

@@ -62,6 +62,8 @@ func TestHandler_Attr(t *testing.T) {
 		slog.Any("err", errors.New("the error")),
 		slog.Any("stringer", theStringer{}),
 		slog.Any("nostringer", noStringer{Foo: "bar"}),
+		slog.Attr{},
+		slog.Any("", nil),
 	)
 	AssertNoError(t, h.Handle(context.Background(), rec))
 
