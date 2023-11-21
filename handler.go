@@ -35,10 +35,13 @@ type HandlerOptions struct {
 
 	// TimeFormat is the format used for time.DateTime
 	TimeFormat string
+
+	// Theme defines the colorized output using ANSI escape sequences
+	Theme Theme
 }
 
 type Handler struct {
-	opts    *HandlerOptions
+	opts    HandlerOptions
 	out     io.Writer
 	group   string
 	context buffer
@@ -60,13 +63,15 @@ func NewHandler(out io.Writer, opts *HandlerOptions) *Handler {
 	if opts.TimeFormat == "" {
 		opts.TimeFormat = time.DateTime
 	}
-	opt := *opts // Copy struct
+	if opts.Theme == nil {
+		opts.Theme = NewDefaultTheme()
+	}
 	return &Handler{
-		opts:    &opt,
+		opts:    *opts, // Copy struct
 		out:     out,
 		group:   "",
 		context: nil,
-		enc:     &encoder{noColor: opt.NoColor, timeFormat: opt.TimeFormat},
+		enc:     &encoder{opts: *opts},
 	}
 }
 
@@ -84,7 +89,7 @@ func (h *Handler) Handle(_ context.Context, rec slog.Record) error {
 	if h.opts.AddSource && rec.PC > 0 {
 		h.enc.writeSource(buf, rec.PC, cwd)
 	}
-	h.enc.writeMessage(buf, rec.Message)
+	h.enc.writeMessage(buf, rec.Level, rec.Message)
 	buf.copy(&h.context)
 	rec.Attrs(func(a slog.Attr) bool {
 		h.enc.writeAttr(buf, a, h.group)

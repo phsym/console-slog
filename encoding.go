@@ -9,91 +9,98 @@ import (
 )
 
 type encoder struct {
-	noColor    bool
-	timeFormat string
+	opts HandlerOptions
 }
 
-func (e *encoder) NewLine(buf *buffer) {
+func (e encoder) NewLine(buf *buffer) {
 	buf.AppendByte('\n')
 }
 
-func (e *encoder) withColor(b *buffer, c color, f func()) {
-	if c == "" || e.noColor {
+func (e encoder) withColor(b *buffer, c ANSIMod, f func()) {
+	if c == "" || e.opts.NoColor {
 		f()
 		return
 	}
 	b.AppendString(string(c))
 	f()
-	b.AppendString(string(reset))
+	b.AppendString(string(ResetMod))
 }
 
-func (e *encoder) writeColoredTime(w *buffer, t time.Time, format string, seq color) {
-	e.withColor(w, seq, func() {
+func (e encoder) writeColoredTime(w *buffer, t time.Time, format string, c ANSIMod) {
+	e.withColor(w, c, func() {
 		w.AppendTime(t, format)
 	})
 }
 
-func (e *encoder) writeColoredString(w *buffer, s string, seq color) {
-	e.withColor(w, seq, func() {
+func (e encoder) writeColoredString(w *buffer, s string, c ANSIMod) {
+	e.withColor(w, c, func() {
 		w.AppendString(s)
 	})
 }
 
-func (e *encoder) writeColoredInt(w *buffer, i int64, seq color) {
-	e.withColor(w, seq, func() {
+func (e encoder) writeColoredInt(w *buffer, i int64, c ANSIMod) {
+	e.withColor(w, c, func() {
 		w.AppendInt(i)
 	})
 }
 
-func (e *encoder) writeColoredUint(w *buffer, i uint64, seq color) {
-	e.withColor(w, seq, func() {
+func (e encoder) writeColoredUint(w *buffer, i uint64, c ANSIMod) {
+	e.withColor(w, c, func() {
 		w.AppendUint(i)
 	})
 }
 
-func (e *encoder) writeColoredFloat(w *buffer, i float64, seq color) {
-	e.withColor(w, seq, func() {
+func (e encoder) writeColoredFloat(w *buffer, i float64, c ANSIMod) {
+	e.withColor(w, c, func() {
 		w.AppendFloat(i)
 	})
 }
 
-func (e *encoder) writeColoredBool(w *buffer, b bool, seq color) {
-	e.withColor(w, seq, func() {
+func (e encoder) writeColoredBool(w *buffer, b bool, c ANSIMod) {
+	e.withColor(w, c, func() {
 		w.AppendBool(b)
 	})
 }
 
-func (e *encoder) writeColoredDuration(w *buffer, d time.Duration, seq color) {
-	e.withColor(w, seq, func() {
+func (e encoder) writeColoredDuration(w *buffer, d time.Duration, c ANSIMod) {
+	e.withColor(w, c, func() {
 		w.AppendDuration(d)
 	})
 }
 
-func (e *encoder) writeTimestamp(buf *buffer, tt time.Time) {
-	e.writeColoredTime(buf, tt, e.timeFormat, colorTimestamp)
+func (e encoder) writeTimestamp(buf *buffer, tt time.Time) {
+	e.writeColoredTime(buf, tt, e.opts.TimeFormat, e.opts.Theme.Timestamp())
 	buf.AppendByte(' ')
 }
 
-func (e *encoder) writeSource(buf *buffer, pc uintptr, cwd string) {
+func (e encoder) writeSource(buf *buffer, pc uintptr, cwd string) {
 	frame, _ := runtime.CallersFrames([]uintptr{pc}).Next()
 	if cwd != "" {
 		if ff, err := filepath.Rel(cwd, frame.File); err == nil {
 			frame.File = ff
 		}
 	}
-	e.withColor(buf, colorSource, func() {
+	e.withColor(buf, e.opts.Theme.Source(), func() {
 		buf.AppendString(frame.File)
 		buf.AppendByte(':')
 		buf.AppendInt(int64(frame.Line))
 	})
-	e.writeColoredString(buf, " > ", colorAttrKey)
+	e.writeColoredString(buf, " > ", e.opts.Theme.AttrKey())
 }
 
-func (e *encoder) writeMessage(buf *buffer, msg string) {
-	e.writeColoredString(buf, msg, colorMessage)
+func (e encoder) writeMessage(buf *buffer, level slog.Level, msg string) {
+	if level >= slog.LevelInfo {
+		e.writeColoredString(buf, msg, e.opts.Theme.Message())
+	} else {
+		e.writeColoredString(buf, msg, e.opts.Theme.MessageDebug())
+	}
 }
 
-func (e *encoder) writeAttr(buf *buffer, a slog.Attr, group string) {
+func (e encoder) writeAttr(buf *buffer, a slog.Attr, group string) {
+	// Elide empty Attrs.
+	if a.Equal(slog.Attr{}) {
+		return
+	}
 	value := a.Value.Resolve()
 	if value.Kind() == slog.KindGroup {
 		subgroup := a.Key
@@ -106,7 +113,7 @@ func (e *encoder) writeAttr(buf *buffer, a slog.Attr, group string) {
 		return
 	}
 	buf.AppendByte(' ')
-	e.withColor(buf, colorAttrKey, func() {
+	e.withColor(buf, e.opts.Theme.AttrKey(), func() {
 		if group != "" {
 			buf.AppendString(group)
 			buf.AppendByte('.')
@@ -117,60 +124,61 @@ func (e *encoder) writeAttr(buf *buffer, a slog.Attr, group string) {
 	e.writeValue(buf, value)
 }
 
-func (e *encoder) writeValue(buf *buffer, value slog.Value) {
+func (e encoder) writeValue(buf *buffer, value slog.Value) {
+	attrValue := e.opts.Theme.AttrValue()
 	switch value.Kind() {
 	case slog.KindInt64:
-		e.writeColoredInt(buf, value.Int64(), colorAttrValue)
+		e.writeColoredInt(buf, value.Int64(), attrValue)
 	case slog.KindBool:
-		e.writeColoredBool(buf, value.Bool(), colorAttrValue)
+		e.writeColoredBool(buf, value.Bool(), attrValue)
 	case slog.KindFloat64:
-		e.writeColoredFloat(buf, value.Float64(), colorAttrValue)
+		e.writeColoredFloat(buf, value.Float64(), attrValue)
 	case slog.KindTime:
-		e.writeColoredTime(buf, value.Time(), e.timeFormat, colorAttrValue)
+		e.writeColoredTime(buf, value.Time(), e.opts.TimeFormat, attrValue)
 	case slog.KindUint64:
-		e.writeColoredUint(buf, value.Uint64(), colorAttrValue)
+		e.writeColoredUint(buf, value.Uint64(), attrValue)
 	case slog.KindDuration:
-		e.writeColoredDuration(buf, value.Duration(), colorAttrValue)
+		e.writeColoredDuration(buf, value.Duration(), attrValue)
 	case slog.KindAny:
 		switch v := value.Any().(type) {
 		case error:
-			e.writeColoredString(buf, v.Error(), colorErrorValue)
+			e.writeColoredString(buf, v.Error(), e.opts.Theme.AttrValueError())
 			return
 		case fmt.Stringer:
-			e.writeColoredString(buf, v.String(), colorAttrValue)
+			e.writeColoredString(buf, v.String(), attrValue)
 			return
 		}
 		fallthrough
 	case slog.KindString:
 		fallthrough
 	default:
-		e.writeColoredString(buf, value.String(), colorAttrValue)
+		e.writeColoredString(buf, value.String(), attrValue)
 	}
 }
 
-func (e *encoder) writeLevel(buf *buffer, l slog.Level) {
-	var style color
+func (e encoder) writeLevel(buf *buffer, l slog.Level) {
+	var style ANSIMod
 	var str string
 	var delta int
 	switch {
 	case l >= slog.LevelError:
-		style = colorLevelError
+		style = e.opts.Theme.LevelError()
 		str = "ERR"
 		delta = int(l - slog.LevelError)
 	case l >= slog.LevelWarn:
-		style = colorLevelWarn
+		style = e.opts.Theme.LevelWarn()
 		str = "WRN"
 		delta = int(l - slog.LevelWarn)
 	case l >= slog.LevelInfo:
-		style = colorLevelInfo
+		style = e.opts.Theme.LevelInfo()
 		str = "INF"
 		delta = int(l - slog.LevelInfo)
 	case l >= slog.LevelDebug:
-		style = colorLevelDebug
+		style = e.opts.Theme.LevelDebug()
 		str = "DBG"
 		delta = int(l - slog.LevelDebug)
 	default:
-		style = bold
+		style = e.opts.Theme.LevelDebug()
 		str = "DBG"
 		delta = int(l - slog.LevelDebug)
 	}
