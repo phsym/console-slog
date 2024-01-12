@@ -45,6 +45,16 @@ type noStringer struct {
 	Foo string
 }
 
+var _ slog.LogValuer = &theValuer{}
+
+type theValuer struct {
+	word string
+}
+
+func (v *theValuer) LogValue() slog.Value {
+	return slog.StringValue(fmt.Sprintf("The word is '%s'", v.word))
+}
+
 func TestHandler_Attr(t *testing.T) {
 	buf := bytes.Buffer{}
 	h := NewHandler(&buf, &HandlerOptions{NoColor: true})
@@ -62,6 +72,12 @@ func TestHandler_Attr(t *testing.T) {
 		slog.Any("err", errors.New("the error")),
 		slog.Any("stringer", theStringer{}),
 		slog.Any("nostringer", noStringer{Foo: "bar"}),
+		// Resolve LogValuer items in addition to Stringer items.
+		// '- Attr's values should be resolved.'
+		// https://pkg.go.dev/log/slog@master#Handler
+		// https://pkg.go.dev/log/slog@master#LogValuer
+		// Note: must use pointer to theValuer object for this to work.
+		slog.Any("valuer", &theValuer{word: "distant"}),
 		// Handlers are supposed to avoid logging empty attributes.
 		// '- If an Attr's key and value are both the zero value, ignore the Attr.'
 		// https://pkg.go.dev/log/slog@master#Handler
@@ -70,7 +86,7 @@ func TestHandler_Attr(t *testing.T) {
 	)
 	AssertNoError(t, h.Handle(context.Background(), rec))
 
-	expected := fmt.Sprintf("%s INF foobar bool=true int=-12 uint=12 float=3.14 foo=bar time=%s dur=1s group.foo=bar group.subgroup.foo=bar err=the error stringer=stringer nostringer={bar}\n", now.Format(time.DateTime), now.Format(time.DateTime))
+	expected := fmt.Sprintf("%s INF foobar bool=true int=-12 uint=12 float=3.14 foo=bar time=%s dur=1s group.foo=bar group.subgroup.foo=bar err=the error stringer=stringer nostringer={bar} valuer=The word is 'distant'\n", now.Format(time.DateTime), now.Format(time.DateTime))
 	AssertEqual(t, expected, buf.String())
 }
 
