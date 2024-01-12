@@ -69,8 +69,10 @@ func (e encoder) writeColoredDuration(w *buffer, d time.Duration, c ANSIMod) {
 }
 
 func (e encoder) writeTimestamp(buf *buffer, tt time.Time) {
-	e.writeColoredTime(buf, tt, e.opts.TimeFormat, e.opts.Theme.Timestamp())
-	buf.AppendByte(' ')
+	if !tt.IsZero() {
+		e.writeColoredTime(buf, tt, e.opts.TimeFormat, e.opts.Theme.Timestamp())
+		buf.AppendByte(' ')
+	}
 }
 
 func (e encoder) writeSource(buf *buffer, pc uintptr, cwd string) {

@@ -26,6 +26,19 @@ func TestHandler_TimeFormat(t *testing.T) {
 	AssertEqual(t, expected, buf.String())
 }
 
+// Handlers should not log the time field if it is zero.
+// '- If r.Time is the zero time, ignore the time.'
+// https://pkg.go.dev/log/slog@master#Handler
+func TestHandler_TimeZero(t *testing.T) {
+	buf := bytes.Buffer{}
+	h := NewHandler(&buf, &HandlerOptions{TimeFormat: time.RFC3339Nano, NoColor: true})
+	rec := slog.NewRecord(time.Time{}, slog.LevelInfo, "foobar", 0)
+	AssertNoError(t, h.Handle(context.Background(), rec))
+
+	expected := fmt.Sprintf("INF foobar\n")
+	AssertEqual(t, expected, buf.String())
+}
+
 func TestHandler_NoColor(t *testing.T) {
 	buf := bytes.Buffer{}
 	h := NewHandler(&buf, &HandlerOptions{NoColor: true})
