@@ -51,6 +51,10 @@ type theValuer struct {
 	word string
 }
 
+// LogValue implements the slog.LogValuer interface.
+// This only works if the attribute value is a pointer to theValuer:
+//
+//	slog.Any("field", &theValuer{"word"}
 func (v *theValuer) LogValue() slog.Value {
 	return slog.StringValue(fmt.Sprintf("The word is '%s'", v.word))
 }
@@ -76,8 +80,7 @@ func TestHandler_Attr(t *testing.T) {
 		// '- Attr's values should be resolved.'
 		// https://pkg.go.dev/log/slog@master#Handler
 		// https://pkg.go.dev/log/slog@master#LogValuer
-		// Note: must use pointer to theValuer object for this to work.
-		slog.Any("valuer", &theValuer{word: "distant"}),
+		slog.Any("valuer", &theValuer{"distant"}),
 		// Handlers are supposed to avoid logging empty attributes.
 		// '- If an Attr's key and value are both the zero value, ignore the Attr.'
 		// https://pkg.go.dev/log/slog@master#Handler
@@ -126,6 +129,22 @@ func TestHandler_GroupInline(t *testing.T) {
 	AssertEqual(t, expected, buf.String())
 }
 
+// A Handler should call Resolve on attribute values in groups.
+// https://cs.opensource.google/go/x/exp/+/0dcbfd60:slog/slogtest/slogtest.go
+func TestHandler_GroupResolve(t *testing.T) {
+	buf := bytes.Buffer{}
+	h := NewHandler(&buf, &HandlerOptions{NoColor: true})
+	now := time.Now()
+	rec := slog.NewRecord(now, slog.LevelInfo, "foobar", 0)
+	rec.AddAttrs(
+		slog.Group("group", "stringer", theStringer{}, "valuer", &theValuer{"surreal"}),
+	)
+	AssertNoError(t, h.Handle(context.Background(), rec))
+
+	expected := fmt.Sprintf("%s INF foobar group.stringer=stringer group.valuer=The word is 'surreal'\n", now.Format(time.DateTime))
+	AssertEqual(t, expected, buf.String())
+}
+
 func TestHandler_WithAttr(t *testing.T) {
 	buf := bytes.Buffer{}
 	h := NewHandler(&buf, &HandlerOptions{NoColor: true})
@@ -139,11 +158,23 @@ func TestHandler_WithAttr(t *testing.T) {
 		slog.String("foo", "bar"),
 		slog.Time("time", now),
 		slog.Duration("dur", time.Second),
-		slog.Group("group", slog.String("foo", "bar"), slog.Group("subgroup", slog.String("foo", "bar"))),
-	})
+		// A Handler should call Resolve on attribute values from WithAttrs.
+		// https://cs.opensource.google/go/x/exp/+/0dcbfd60:slog/slogtest/slogtest.go
+		slog.Any("stringer", theStringer{}),
+		slog.Any("valuer", &theValuer{"awesome"}),
+		slog.Group("group",
+			slog.String("foo", "bar"),
+			slog.Group("subgroup",
+				slog.String("foo", "bar"),
+			),
+			// A Handler should call Resolve on attribute values in groups from WithAttrs.
+			// https://cs.opensource.google/go/x/exp/+/0dcbfd60:slog/slogtest/slogtest.go
+			"stringer", theStringer{},
+			"valuer", &theValuer{"pizza"},
+		)})
 	AssertNoError(t, h2.Handle(context.Background(), rec))
 
-	expected := fmt.Sprintf("%s INF foobar bool=true int=-12 uint=12 float=3.14 foo=bar time=%s dur=1s group.foo=bar group.subgroup.foo=bar\n", now.Format(time.DateTime), now.Format(time.DateTime))
+	expected := fmt.Sprintf("%s INF foobar bool=true int=-12 uint=12 float=3.14 foo=bar time=%s dur=1s stringer=stringer valuer=The word is 'awesome' group.foo=bar group.subgroup.foo=bar group.stringer=stringer group.valuer=The word is 'pizza'\n", now.Format(time.DateTime), now.Format(time.DateTime))
 	AssertEqual(t, expected, buf.String())
 
 	buf.Reset()
