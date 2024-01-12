@@ -62,12 +62,51 @@ func TestHandler_Attr(t *testing.T) {
 		slog.Any("err", errors.New("the error")),
 		slog.Any("stringer", theStringer{}),
 		slog.Any("nostringer", noStringer{Foo: "bar"}),
+		// Handlers are supposed to avoid logging empty attributes.
+		// '- If an Attr's key and value are both the zero value, ignore the Attr.'
+		// https://pkg.go.dev/log/slog@master#Handler
 		slog.Attr{},
 		slog.Any("", nil),
 	)
 	AssertNoError(t, h.Handle(context.Background(), rec))
 
 	expected := fmt.Sprintf("%s INF foobar bool=true int=-12 uint=12 float=3.14 foo=bar time=%s dur=1s group.foo=bar group.subgroup.foo=bar err=the error stringer=stringer nostringer={bar}\n", now.Format(time.DateTime), now.Format(time.DateTime))
+	AssertEqual(t, expected, buf.String())
+}
+
+// Handlers should not log groups (or subgroups) without fields.
+// '- If a group has no Attrs (even if it has a non-empty key), ignore it.'
+// https://pkg.go.dev/log/slog@master#Handler
+func TestHandler_GroupEmpty(t *testing.T) {
+	buf := bytes.Buffer{}
+	h := NewHandler(&buf, &HandlerOptions{NoColor: true})
+	now := time.Now()
+	rec := slog.NewRecord(now, slog.LevelInfo, "foobar", 0)
+	rec.AddAttrs(
+		slog.Group("group", slog.String("foo", "bar")),
+		slog.Group("empty"),
+	)
+	AssertNoError(t, h.Handle(context.Background(), rec))
+
+	expected := fmt.Sprintf("%s INF foobar group.foo=bar\n", now.Format(time.DateTime))
+	AssertEqual(t, expected, buf.String())
+}
+
+// Handlers should expand groups named "" (the empty string) into the enclosing log record.
+// '- If a group's key is empty, inline the group's Attrs.'
+// https://pkg.go.dev/log/slog@master#Handler
+func TestHandler_GroupInline(t *testing.T) {
+	buf := bytes.Buffer{}
+	h := NewHandler(&buf, &HandlerOptions{NoColor: true})
+	now := time.Now()
+	rec := slog.NewRecord(now, slog.LevelInfo, "foobar", 0)
+	rec.AddAttrs(
+		slog.Group("group", slog.String("foo", "bar")),
+		slog.Group("", slog.String("foo", "bar")),
+	)
+	AssertNoError(t, h.Handle(context.Background(), rec))
+
+	expected := fmt.Sprintf("%s INF foobar group.foo=bar foo=bar\n", now.Format(time.DateTime))
 	AssertEqual(t, expected, buf.String())
 }
 
@@ -162,6 +201,13 @@ func TestHandler_Source(t *testing.T) {
 	AssertEqual(t, fmt.Sprintf("%s INF %s:%d > foobar\n", now.Format(time.DateTime), file, line), buf.String())
 	buf.Reset()
 	AssertNoError(t, h2.Handle(context.Background(), rec))
+	AssertEqual(t, fmt.Sprintf("%s INF foobar\n", now.Format(time.DateTime)), buf.String())
+	buf.Reset()
+	// If the PC is zero then this field and its associated group should not be logged.
+	// '- If r.PC is zero, ignore it.'
+	// https://pkg.go.dev/log/slog@master#Handler
+	rec.PC = 0
+	AssertNoError(t, h.Handle(context.Background(), rec))
 	AssertEqual(t, fmt.Sprintf("%s INF foobar\n", now.Format(time.DateTime)), buf.String())
 }
 
